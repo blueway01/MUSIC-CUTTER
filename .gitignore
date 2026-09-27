@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.log
+.venv/
+venv/
+build/
+dist/
+MUSIC CUTTER CONVERT FILE/
+*.wav
+*.mp3
+*.m4a
+*.zip
+*.exe
+*.sha256
+.streamlit/secrets.toml

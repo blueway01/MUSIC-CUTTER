@@ -1,0 +1,42 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install FFmpeg
+        shell: pwsh
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: pip install -r requirements-dev.txt
+
+      - name: Test and build EXE
+        shell: pwsh
+        run: ./build_windows.ps1
+
+      - name: Upload completed EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: MUSIC-CUTTER-Windows
+          path: |
+            dist/MUSIC CUTTER.exe
+            dist/MUSIC CUTTER SHA256.txt
+          if-no-files-found: error
