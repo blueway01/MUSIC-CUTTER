@@ -11,6 +11,7 @@ from auto_split import find_song_boundaries, make_ranges
 from clip_editor import clip_duration, list_saved_clips, preview_segment, save_revised_clip
 from cut_storage import clean_title, delete_history_entry, read_history, save_cuts
 from folder_actions import open_folder, select_folder
+from public_storage import reset_session_directory, session_directory
 from save_location import output_directory
 from ui_text import translate
 from ui_theme import theme_css
@@ -24,6 +25,7 @@ st.set_page_config(
     layout="centered",
 )
 APP_DIR = Path(os.environ.get("MUSIC_CUTTER_APP_DIR", Path(__file__).resolve().parent)).resolve()
+PUBLIC_MODE = os.environ.get("MUSIC_CUTTER_PUBLIC") == "1"
 
 
 def T(key: str, **values: object) -> str:
@@ -319,6 +321,8 @@ def range_player_html(start: float, end: float) -> str:
 
 def reset_work() -> None:
     """English implementation note."""
+    if PUBLIC_MODE:
+        reset_session_directory(st.session_state)
     st.session_state.upload_nonce = st.session_state.get("upload_nonce", 0) + 1
     work_keys = {
         "source_id", "decoded_source_id", "source_audio", "source_wave_data",
@@ -326,6 +330,8 @@ def reset_work() -> None:
         "cut_slider", "source_title", "source_duration", "completed_in_session", "range_notice",
         "range_error", "save_notice", "auto_notice", "range_preview", "auto_result", "auto_applied_signature", "work_mode",
         "auto_extra_boundaries",
+        "clip_save_notice", "clip_selected_path", "clip_duration_seconds",
+        "clip_start", "clip_end", "clip_slider", "clip_title", "download_clip",
     }
     for key in list(st.session_state):
         if key in work_keys or (key.startswith("upload_") and key != "upload_nonce") or key.startswith(("auto_candidate_", "range_title_")):
@@ -777,23 +783,28 @@ if uploaded_file is not None:
         else:
             st.caption(T('Added ranges and titles appear here.'))
 
-        st.markdown(f"### {T('④ Choose where to save')}")
-        save_mode = st.radio(T('Save location'), ['Default', 'Choose a folder'], horizontal=True, key="save_mode", format_func=T)
-        if save_mode == 'Choose a folder':
-            dir_col, browse_col = st.columns([4, 1])
-            with dir_col:
-                st.text_input(T('Parent folder for saved files'), key="custom_dir", placeholder=r"C:\Music")
-            with browse_col:
-                st.markdown("<div style='height: 1.7rem'></div>", unsafe_allow_html=True)
-                st.button(T('Browse'), on_click=choose_folder, width="stretch")
-            if st.session_state.get("folder_picker_error"):
-                st.error(T('Could not open the folder picker: {error}', error=st.session_state.folder_picker_error))
-        try:
-            output_dir = output_directory(APP_DIR, save_mode, st.session_state.get("custom_dir", ""))
-            st.caption(T('Save folder: {path}', path=output_dir))
-        except (OSError, ValueError) as error:
-            output_dir = None
-            st.error(T(str(error)))
+        if PUBLIC_MODE:
+            st.markdown(f"### {T('④ Download the split tracks')}")
+            st.caption(T('Files are temporary. Download them before closing or resetting the page.'))
+            output_dir = session_directory(st.session_state)
+        else:
+            st.markdown(f"### {T('④ Choose where to save')}")
+            save_mode = st.radio(T('Save location'), ['Default', 'Choose a folder'], horizontal=True, key="save_mode", format_func=T)
+            if save_mode == 'Choose a folder':
+                dir_col, browse_col = st.columns([4, 1])
+                with dir_col:
+                    st.text_input(T('Parent folder for saved files'), key="custom_dir", placeholder=r"C:\Music")
+                with browse_col:
+                    st.markdown("<div style='height: 1.7rem'></div>", unsafe_allow_html=True)
+                    st.button(T('Browse'), on_click=choose_folder, width="stretch")
+                if st.session_state.get("folder_picker_error"):
+                    st.error(T('Could not open the folder picker: {error}', error=st.session_state.folder_picker_error))
+            try:
+                output_dir = output_directory(APP_DIR, save_mode, st.session_state.get("custom_dir", ""))
+                st.caption(T('Save folder: {path}', path=output_dir))
+            except (OSError, ValueError) as error:
+                output_dir = None
+                st.error(T(str(error)))
 
         if st.button(
             T('Cut and save'),
@@ -803,7 +814,7 @@ if uploaded_file is not None:
         ):
             try:
                 numbered_ranges = [
-                    {**item, 'Track': st.session_state.completed_in_session + idx + 1}
+                    {**item, 'track_order': st.session_state.completed_in_session + idx + 1}
                     for idx, item in enumerate(st.session_state.cut_ranges)
                 ]
                 saved = save_cuts(audio, numbered_ranges, uploaded_file.name, output_dir)
@@ -817,7 +828,10 @@ if uploaded_file is not None:
                 st.error(T('Save failed: {error}', error=T(str(error))))
         if st.session_state.get("save_notice"):
             saved_count, saved_path = st.session_state.save_notice
-            st.success(T('Saved {count} tracks to {path}. Return to step ③ to continue with this audio.', count=saved_count, path=saved_path))
+            if PUBLIC_MODE:
+                st.success(T('Created {count} tracks. Download them below.', count=saved_count))
+            else:
+                st.success(T('Saved {count} tracks to {path}. Return to step ③ to continue with this audio.', count=saved_count, path=saved_path))
 
         st.markdown(f"### {T('⑤ Next task')}")
         st.button(T('Start a new task (reset)'), on_click=reset_work, type="primary", width="stretch")
@@ -826,24 +840,45 @@ if uploaded_file is not None:
         st.error(T('Audio processing failed: {error}', error=T(str(e))))
 
 if output_dir is None:
-    try:
-        output_dir = output_directory(
-            APP_DIR,
-            st.session_state.get("save_mode", 'Default'),
-            st.session_state.get("custom_dir", ""),
-        )
-    except (OSError, ValueError):
-        output_dir = None
+    if PUBLIC_MODE:
+        output_dir = session_directory(st.session_state)
+    else:
+        try:
+            output_dir = output_directory(
+                APP_DIR,
+                st.session_state.get("save_mode", 'Default'),
+                st.session_state.get("custom_dir", ""),
+            )
+        except (OSError, ValueError):
+            output_dir = None
 
 if output_dir is not None:
-    if st.button(T('📂 Open save folder'), key="open_output_folder", type="secondary", width="stretch"):
-        try:
-            open_folder(output_dir)
-            st.session_state.pop("open_folder_error", None)
-        except OSError as error:
-            st.session_state.open_folder_error = str(error)
-    if st.session_state.get("open_folder_error"):
-        st.error(T('Could not open the save folder: {error}', error=st.session_state.open_folder_error))
+    if PUBLIC_MODE:
+        downloadable_clips = list_saved_clips(output_dir)
+        if downloadable_clips:
+            st.markdown(f"### {T('Download an MP3 file')}")
+            download_clip = st.selectbox(
+                T('Select a file to download'), downloadable_clips,
+                format_func=lambda path: path.name,
+                key="download_clip",
+            )
+            st.download_button(
+                T('Download selected MP3'),
+                data=download_clip.read_bytes(),
+                file_name=download_clip.name,
+                mime="audio/mpeg",
+                width="stretch",
+                on_click="ignore",
+            )
+    else:
+        if st.button(T('📂 Open save folder'), key="open_output_folder", type="secondary", width="stretch"):
+            try:
+                open_folder(output_dir)
+                st.session_state.pop("open_folder_error", None)
+            except OSError as error:
+                st.session_state.open_folder_error = str(error)
+        if st.session_state.get("open_folder_error"):
+            st.error(T('Could not open the save folder: {error}', error=st.session_state.open_folder_error))
 
     st.markdown(f"### {T('✂️ Edit a saved clip')}")
     st.caption(T('Select a range in a saved MP3. The original remains; the revision is saved with a new number. The range cannot extend outside the saved file.'))
@@ -909,7 +944,7 @@ if output_dir is not None:
                 record = save_revised_clip(
                     output_dir, selected_clip, clip_start, clip_end, st.session_state.clip_title,
                 )
-                st.session_state.clip_save_notice = record['File name']
+                st.session_state.clip_save_notice = record['filename']
                 st.rerun()
         except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
             st.error(T('Clip editing failed: {error}', error=T(str(error))))
@@ -923,13 +958,22 @@ try:
         counts_by_source = {}
         numbered_history = []
         for item in history:
-            source_name = item['Source file']
+            source_name = item['source_file']
             counts_by_source[source_name] = counts_by_source.get(source_name, 0) + 1
-            song_order = item.get('Track', counts_by_source[source_name])
-            numbered_history.append({**item, 'Track': T('Track {number}', number=song_order)})
-        history_columns = ['Track', 'Number', 'Title', 'Source file', 'Start (sec)', 'End (sec)', 'Saved at', 'File name']
+            song_order = item.get('track_order', counts_by_source[source_name])
+            numbered_history.append({**item, 'track_label': T('Track {number}', number=song_order)})
+        history_columns = {
+            'Track': 'track_label',
+            'Number': 'number',
+            'Title': 'title',
+            'Source file': 'source_file',
+            'Start (sec)': 'start_seconds',
+            'End (sec)': 'end_seconds',
+            'Saved at': 'saved_at',
+            'File name': 'filename',
+        }
         displayed_history = [
-            {T(column): item.get(column, "") for column in history_columns}
+            {T(column): item.get(field, "") for column, field in history_columns.items()}
             for item in reversed(numbered_history)
         ]
         st.dataframe(
@@ -938,7 +982,7 @@ try:
             hide_index=True,
             column_order=[T(column) for column in history_columns],
         )
-        by_number = {int(item['Number']): item for item in history}
+        by_number = {int(item['number']): item for item in history}
         selected_number = st.selectbox(
             T('History entry to remove'),
             options=list(reversed(by_number)),
