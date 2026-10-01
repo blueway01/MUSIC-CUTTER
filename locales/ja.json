@@ -131,5 +131,6 @@
   "Select a file to download": "ダウンロードするファイル",
   "Download selected MP3": "選択したMP3をダウンロード",
   "All audio has been added to the split list.": "音声の全範囲を切り分け一覧に追加しました。",
-  "Set the next range after the previous track.": "次の範囲は前の曲の終了位置以降に設定してください。"
+  "Set the next range after the previous track.": "次の範囲は前の曲の終了位置以降に設定してください。",
+  "Cut duration": "切り分け時間"
 }
