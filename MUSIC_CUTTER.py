@@ -326,7 +326,7 @@ def reset_work() -> None:
     st.session_state.upload_nonce = st.session_state.get("upload_nonce", 0) + 1
     work_keys = {
         "source_id", "decoded_source_id", "source_audio", "source_wave_data",
-        "cut_ranges", "start_input", "end_input", "cut_title",
+"cut_ranges", "start_input", "end_input", "cut_title", "saved_through",
         "cut_slider", "source_title", "source_duration", "completed_in_session", "range_notice",
         "range_error", "save_notice", "auto_notice", "range_preview", "auto_result", "auto_applied_signature", "work_mode",
         "auto_extra_boundaries",
@@ -390,6 +390,7 @@ if uploaded_file is not None:
             st.session_state.source_title = Path(uploaded_file.name).stem
             st.session_state.source_duration = duration_sec
             st.session_state.completed_in_session = 0
+            st.session_state.saved_through = 0.0
             st.session_state.pop("range_notice", None)
             st.session_state.pop("range_error", None)
             st.session_state.pop("save_notice", None)
@@ -423,7 +424,7 @@ if uploaded_file is not None:
         calc_start = parse_time_str(st.session_state.start_input)
         calc_end = min(parse_time_str(st.session_state.end_input), duration_sec)
         cut_length = max(0.0, calc_end - calc_start)
-        last_listed_end = st.session_state.cut_ranges[-1]["end"] if st.session_state.cut_ranges else 0.0
+        last_listed_end = st.session_state.cut_ranges[-1]["end"] if st.session_state.cut_ranges else st.session_state.get("saved_through", 0.0)
         has_manual_selection = (
             work_mode == 'Manual'
             and last_listed_end < duration_sec
@@ -738,7 +739,7 @@ if uploaded_file is not None:
         pending_range = None
         if work_mode == 'Manual':
             next_song_number = st.session_state.completed_in_session + len(st.session_state.cut_ranges) + 1
-            last_end = st.session_state.cut_ranges[-1]["end"] if st.session_state.cut_ranges else 0.0
+            last_end = st.session_state.cut_ranges[-1]["end"] if st.session_state.cut_ranges else st.session_state.get("saved_through", 0.0)
             if has_manual_selection:
                 if not str(st.session_state.get("cut_title", "")).strip():
                     st.session_state.cut_title = f"{st.session_state.source_title}_{next_song_number:02d}"
@@ -841,7 +842,14 @@ if uploaded_file is not None:
                 ]
                 saved = save_cuts(audio, numbered_ranges, uploaded_file.name, output_dir)
                 st.session_state.completed_in_session += len(saved)
+                saved_end = max(item["end"] for item in ranges_to_save)
+                st.session_state.saved_through = saved_end
                 st.session_state.cut_ranges = []
+                if saved_end < duration_sec:
+                    st.session_state.start_input = format_time(saved_end)
+                    st.session_state.end_input = format_time(duration_sec)
+                    st.session_state.cut_slider = (saved_end, duration_sec)
+                    st.session_state.cut_title = f"{st.session_state.source_title}_{st.session_state.completed_in_session + 1:02d}"
                 st.session_state.pop("range_notice", None)
                 st.session_state.save_notice = (len(saved), str(output_dir))
                 st.balloons()
