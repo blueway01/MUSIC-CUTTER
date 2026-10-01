@@ -2,3 +2,4 @@ streamlit==1.64.0
 numpy==2.2.6; python_version < "3.14"
 numpy==2.3.4; python_version >= "3.14"
 pydub==0.25.1
+audioop-lts==0.2.2; python_version >= "3.13"
