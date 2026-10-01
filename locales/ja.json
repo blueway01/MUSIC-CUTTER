@@ -129,5 +129,7 @@
   "Created {count} tracks. Download them below.": "{count}曲を作成しました。下のボタンからダウンロードしてください。",
   "Download an MP3 file": "MP3ファイルをダウンロード",
   "Select a file to download": "ダウンロードするファイル",
-  "Download selected MP3": "選択したMP3をダウンロード"
+  "Download selected MP3": "選択したMP3をダウンロード",
+  "All audio has been added to the split list.": "音声の全範囲を切り分け一覧に追加しました。",
+  "Set the next range after the previous track.": "次の範囲は前の曲の終了位置以降に設定してください。"
 }
