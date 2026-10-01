@@ -124,13 +124,15 @@
   "A boundary would create a track shorter than the allowed duration.": "\u66f2\u306e\u9577\u3055\u304c\u6307\u5b9a\u3057\u305f\u4e0b\u9650\u3092\u4e0b\u56de\u308b\u5883\u754c\u304c\u3042\u308a\u307e\u3059\u3002",
   "The selected range contains no audio samples.": "\u9078\u629e\u3057\u305f\u7bc4\u56f2\u306b\u97f3\u58f0\u30b5\u30f3\u30d7\u30eb\u304c\u3042\u308a\u307e\u305b\u3093\u3002",
   "Set the start and end positions within the file duration.": "\u958b\u59cb\u4f4d\u7f6e\u3068\u7d42\u4e86\u4f4d\u7f6e\u3092\u30d5\u30a1\u30a4\u30eb\u306e\u7bc4\u56f2\u5185\u3067\u6307\u5b9a\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
-  "④ Download the split tracks": "④ 切り分けた曲をダウンロード",
-  "Files are temporary. Download them before closing or resetting the page.": "ファイルは一時的に保管されます。ページを閉じるかリセットする前にダウンロードしてください。",
-  "Created {count} tracks. Download them below.": "{count}曲を作成しました。下のボタンからダウンロードしてください。",
-  "Download an MP3 file": "MP3ファイルをダウンロード",
-  "Select a file to download": "ダウンロードするファイル",
-  "Download selected MP3": "選択したMP3をダウンロード",
-  "All audio has been added to the split list.": "音声の全範囲を切り分け一覧に追加しました。",
-  "Set the next range after the previous track.": "次の範囲は前の曲の終了位置以降に設定してください。",
-  "Cut duration": "切り分け時間"
+  "\u2463 Download the split tracks": "\u2463 \u5207\u308a\u5206\u3051\u305f\u66f2\u3092\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9",
+  "Files are temporary. Download them before closing or resetting the page.": "\u30d5\u30a1\u30a4\u30eb\u306f\u4e00\u6642\u7684\u306b\u4fdd\u7ba1\u3055\u308c\u307e\u3059\u3002\u30da\u30fc\u30b8\u3092\u9589\u3058\u308b\u304b\u30ea\u30bb\u30c3\u30c8\u3059\u308b\u524d\u306b\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+  "Created {count} tracks. Download them below.": "{count}\u66f2\u3092\u4f5c\u6210\u3057\u307e\u3057\u305f\u3002\u4e0b\u306e\u30dc\u30bf\u30f3\u304b\u3089\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+  "Download an MP3 file": "MP3\u30d5\u30a1\u30a4\u30eb\u3092\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9",
+  "Select a file to download": "\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u3059\u308b\u30d5\u30a1\u30a4\u30eb",
+  "Download selected MP3": "\u9078\u629e\u3057\u305fMP3\u3092\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9",
+  "All audio has been added to the split list.": "\u97f3\u58f0\u306e\u5168\u7bc4\u56f2\u3092\u5207\u308a\u5206\u3051\u4e00\u89a7\u306b\u8ffd\u52a0\u3057\u307e\u3057\u305f\u3002",
+  "Set the next range after the previous track.": "\u6b21\u306e\u7bc4\u56f2\u306f\u524d\u306e\u66f2\u306e\u7d42\u4e86\u4f4d\u7f6e\u4ee5\u964d\u306b\u8a2d\u5b9a\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+  "Cut duration": "\u5207\u308a\u5206\u3051\u6642\u9593",
+  "Selected range: {start} \u2013 {end}": "\u9078\u629e\u7bc4\u56f2\uff1a{start} \uff5e {end}"
 }
+
