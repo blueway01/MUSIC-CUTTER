@@ -55,4 +55,6 @@ The included GitHub Actions workflow runs the unit tests, builds the Windows EXE
 
 ## Public hosting note
 
-Local folder selection and Explorer integration operate on the computer running the application. A public server deployment would require browser downloads and isolated per-user processing instead of local path selection.
+Use Streamlit Community Cloud for the public browser version. Select this repository, the `main` branch, and `streamlit_app.py` as the entrypoint. The root `requirements.txt` installs Python dependencies, and `packages.txt` installs FFmpeg.
+
+The public entrypoint keeps each visitor's working files in a separate temporary directory. Visitors download each MP3 in the browser. Reset removes that session's generated files and history. Files are temporary and can also disappear when the hosting process restarts. The public version does not offer local folder selection or Explorer integration. The Windows EXE and `MUSIC_CUTTER.py` continue to use local folders.
