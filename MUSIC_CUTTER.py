@@ -4,6 +4,7 @@ import io
 import os
 import re
 import subprocess
+import datetime as dt
 from pathlib import Path
 import streamlit as st
 from pydub import AudioSegment
@@ -54,6 +55,7 @@ with language_column:
 # Application workflow.
 AUTO_MIN_SONG_SECONDS = 45
 WAVE_COLORS = ["#38bdf8", "#a78bfa", "#34d399", "#fbbf24", "#fb7185", "#22d3ee", "#c084fc", "#a3e635"]
+SLIDER_TIME_ORIGIN = dt.datetime(2000, 1, 1)
 
 # Application workflow.
 st.markdown("""
@@ -209,7 +211,15 @@ def read_input_time(value: str) -> float | None:
     return round(parse_time_str(normalized), 3)
 
 
-def repair_selection(duration: float) -> None:
+def seconds_to_slider_time(seconds: float) -> dt.datetime:
+    return SLIDER_TIME_ORIGIN + dt.timedelta(milliseconds=round(seconds * 1000))
+
+
+def slider_time_to_seconds(value: dt.datetime) -> float:
+    return (value - SLIDER_TIME_ORIGIN).total_seconds()
+
+
+def repair_selection(duration: float, slider_key: str | None = None) -> None:
     """English implementation note."""
     if duration < 0.001:
         return
@@ -230,20 +240,28 @@ def repair_selection(duration: float) -> None:
     st.session_state.start_input = format_time(start)
     st.session_state.end_input = format_time(end)
     st.session_state.cut_slider = (start, end)
+    if slider_key:
+        st.session_state[slider_key] = (
+            seconds_to_slider_time(start),
+            seconds_to_slider_time(end),
+        )
     st.session_state.pop("range_error", None)
 
 
-def sync_slider_to_inputs() -> None:
-    """English implementation note."""
-    start, end = st.session_state.cut_slider
+def sync_slider_to_inputs(duration: float, slider_key: str) -> None:
+    """Copy the selected date-time range back into numeric audio seconds."""
+    slider_start, slider_end = st.session_state[slider_key]
+    start = slider_time_to_seconds(slider_start)
+    end = slider_time_to_seconds(slider_end)
+    st.session_state.cut_slider = (start, end)
     st.session_state.start_input = format_time(start)
     st.session_state.end_input = format_time(end)
-    repair_selection(st.session_state.source_duration)
-
-
-def sync_inputs_to_slider(duration: float) -> None:
-    """English implementation note."""
     repair_selection(duration)
+
+
+def sync_inputs_to_slider(duration: float, slider_key: str) -> None:
+    """English implementation note."""
+    repair_selection(duration, slider_key)
 
 
 def sync_clip_slider() -> None:
@@ -364,6 +382,7 @@ if uploaded_file is not None:
 
     try:
         source_id = (uploaded_file.name, hashlib.sha256(file_bytes).hexdigest())
+        slider_key = f"cut_slider_time_{source_id[1][:12]}"
         if st.session_state.get("decoded_source_id") != source_id:
             st.session_state.pop("source_audio", None)
             st.session_state.pop("source_wave_data", None)
@@ -386,6 +405,10 @@ if uploaded_file is not None:
             st.session_state.start_input = "00:00.0"
             st.session_state.end_input = format_time(duration_sec)
             st.session_state.cut_slider = (0.0, duration_sec)
+            st.session_state[slider_key] = (
+                seconds_to_slider_time(0.0),
+                seconds_to_slider_time(duration_sec),
+            )
             st.session_state.cut_title = f"{Path(uploaded_file.name).stem}_01"
             st.session_state.source_title = Path(uploaded_file.name).stem
             st.session_state.source_duration = duration_sec
@@ -412,7 +435,7 @@ if uploaded_file is not None:
         if "cut_slider" not in st.session_state:
             st.session_state.cut_slider = (0.0, duration_sec)
         st.session_state.source_duration = duration_sec
-        repair_selection(duration_sec)
+        repair_selection(duration_sec, slider_key)
 
         st.markdown(f"### {T('② Choose a splitting method')}")
         work_mode = st.radio(T('Splitting method'), ['Manual', 'Automatic'], horizontal=True, key="work_mode", format_func=T)
@@ -580,10 +603,10 @@ if uploaded_file is not None:
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.markdown(f"<div style='text-align: center; font-weight: 700; color: var(--mc-start-fg); font-size: 0.85rem; margin-bottom: 2px;'>{T('🟢 Start')}</div>", unsafe_allow_html=True)
-                st.text_input(T('Start time input'), key="start_input", label_visibility="collapsed", on_change=sync_inputs_to_slider, args=(duration_sec,))
+                st.text_input(T('Start time input'), key="start_input", label_visibility="collapsed", on_change=sync_inputs_to_slider, args=(duration_sec, slider_key))
             with col2:
                 st.markdown(f"<div style='text-align: center; font-weight: 700; color: var(--mc-end-fg); font-size: 0.85rem; margin-bottom: 2px;'>{T('🔴 End')}</div>", unsafe_allow_html=True)
-                st.text_input(T('End time input'), key="end_input", label_visibility="collapsed", on_change=sync_inputs_to_slider, args=(duration_sec,))
+                st.text_input(T('End time input'), key="end_input", label_visibility="collapsed", on_change=sync_inputs_to_slider, args=(duration_sec, slider_key))
             with col3:
                 st.markdown(f"<div style='text-align: center; font-weight: 700; color: var(--mc-length-fg); font-size: 0.85rem; margin-bottom: 2px;'>{T('📏 Duration')}</div>", unsafe_allow_html=True)
                 st.markdown(
@@ -593,14 +616,21 @@ if uploaded_file is not None:
 
             st.slider(
                 T('Split range slider'),
-                min_value=0.0,
-                max_value=duration_sec,
-                step=0.001,
-                key="cut_slider",
+                min_value=SLIDER_TIME_ORIGIN,
+                max_value=seconds_to_slider_time(duration_sec),
+                step=dt.timedelta(milliseconds=1),
+                format="HH:mm:ss.SSS",
+                key=slider_key,
                 on_change=sync_slider_to_inputs,
-                format_func=format_time,
+                args=(duration_sec, slider_key),
                 help=T('Moving either handle also updates the time fields.'),
             )
+            selected_start, selected_end = st.session_state[slider_key]
+            st.caption(T(
+                'Selected range: {start} – {end}',
+                start=format_time(slider_time_to_seconds(selected_start)),
+                end=format_time(slider_time_to_seconds(selected_end)),
+            ))
         if work_mode == 'Automatic':
             st.caption(T('Finds gaps using silence and changes in timbre, pitch, and rhythm. Listen to the results before saving.'))
             if st.session_state.get("auto_notice"):
