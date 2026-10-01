@@ -774,6 +774,7 @@ if uploaded_file is not None:
                     T('Track'): T('Track {number}', number=song_number),
                     T('Start'): format_time(item["start"]),
                     T('End'): format_time(item["end"]),
+                    T('Cut duration'): format_time(item["end"] - item["start"]),
                     T('Title'): item["title"],
                 })
             st.caption(T('All track ranges are shown below, including track 3 and later.'))
