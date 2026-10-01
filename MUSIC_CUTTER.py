@@ -469,7 +469,7 @@ if uploaded_file is not None:
             <div style="display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:6px;min-height:14px;">{color_legend}</div>
         </div>
         <script>
-            const audio = window.parent.document.querySelector('.st-key-source_player audio');
+            let audio = null;
             const canvas = document.getElementById('waveformCanvas');
             const ctx = canvas.getContext('2d');
             
@@ -481,10 +481,24 @@ if uploaded_file is not None:
             const cutColors = {colors_json};
             const bars = barHeights.length;
 
-            if (audio) {{
+            function connectPlayer() {{
+                audio = window.parent.document.querySelector('.st-key-source_player audio');
+                if (!audio) return false;
                 const seekToStart = () => {{ audio.currentTime = startTime; }};
                 if (audio.readyState >= 1) seekToStart();
                 else audio.addEventListener('loadedmetadata', seekToStart, {{ once: true }});
+                audio.addEventListener('timeupdate', () => {{
+                    if (audio.duration) drawWaveform(audio.currentTime);
+                }});
+                audio.addEventListener('seeked', () => drawWaveform(audio.currentTime));
+                return true;
+            }}
+
+            if (!connectPlayer()) {{
+                const parentObserver = new MutationObserver(() => {{
+                    if (connectPlayer()) parentObserver.disconnect();
+                }});
+                parentObserver.observe(window.parent.document.body, {{ childList: true, subtree: true }});
             }}
 
             function jumpToStart() {{
@@ -492,6 +506,13 @@ if uploaded_file is not None:
                 audio.currentTime = startTime;
                 audio.play();
             }}
+
+            canvas.addEventListener('click', (event) => {{
+                if (!audio || !duration) return;
+                const bounds = canvas.getBoundingClientRect();
+                const fraction = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+                audio.currentTime = fraction * duration;
+            }});
 
             function drawWaveform(currentTime = -1) {{
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -542,20 +563,12 @@ if uploaded_file is not None:
                 }}
             }}
 
-            if (audio) {{
-                audio.addEventListener('timeupdate', () => {{
-                    if (audio.duration) {{
-                        drawWaveform(audio.currentTime);
-                    }}
-                }});
-            }}
-            
             drawWaveform(startTime);
         </script>
         """
+        st.iframe(player_html, height=145)
         with st.container(key="source_player"):
             st.audio(file_bytes, format=mime_type)
-        st.iframe(player_html, height=145)
 
         # ---------------------------------------------------------
         # Application workflow.
@@ -585,6 +598,7 @@ if uploaded_file is not None:
                 step=0.001,
                 key="cut_slider",
                 on_change=sync_slider_to_inputs,
+                format_func=format_time,
                 help=T('Moving either handle also updates the time fields.'),
             )
         if work_mode == 'Automatic':
@@ -785,7 +799,7 @@ if uploaded_file is not None:
                 with c_info:
                     song_number = st.session_state.completed_in_session + idx + 1
                     range_label = T('Track {number} · Start {start} / End {end}', number=song_number, start=format_time(r["start"]), end=format_time(r["end"]))
-                    st.markdown(f"**{range_label}**")
+                    st.markdown(f"**{range_label} · {T('Cut duration')}: {format_time(r['end'] - r['start'])}**")
                     title_key = f"range_title_{source_id[1][:12]}_{idx}_{round(r['start'] * 1000)}_{round(r['end'] * 1000)}"
                     r["title"] = st.text_input(T('Track {number} title', number=song_number), value=r["title"], key=title_key)
                 with c_play:
@@ -1037,3 +1051,4 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True,
 )
+
