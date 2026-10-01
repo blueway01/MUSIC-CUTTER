@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "echo Streamlit redirect is ready",
+  "outputDirectory": "vercel-static",
+  "cleanUrls": true
+}
