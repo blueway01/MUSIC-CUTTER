@@ -423,6 +423,12 @@ if uploaded_file is not None:
         calc_start = parse_time_str(st.session_state.start_input)
         calc_end = min(parse_time_str(st.session_state.end_input), duration_sec)
         cut_length = max(0.0, calc_end - calc_start)
+        last_listed_end = st.session_state.cut_ranges[-1]["end"] if st.session_state.cut_ranges else 0.0
+        has_manual_selection = (
+            work_mode == 'Manual'
+            and last_listed_end < duration_sec
+            and last_listed_end <= calc_start < calc_end
+        )
 
         mime_type = {
             ".mp3": "audio/mpeg",
@@ -430,11 +436,14 @@ if uploaded_file is not None:
             ".m4a": "audio/mp4",
         }[Path(uploaded_file.name).suffix.lower()]
         wave_json = json.dumps(wave_data)
+        preview_ranges = list(st.session_state.cut_ranges)
+        if has_manual_selection:
+            preview_ranges.append({"start": calc_start, "end": calc_end})
         cut_ranges_json = json.dumps(
-            [{"start": item["start"], "end": item["end"]} for item in st.session_state.cut_ranges]
+            [{"start": item["start"], "end": item["end"]} for item in preview_ranges]
         )
         colors_json = json.dumps(WAVE_COLORS)
-        cut_count = len(st.session_state.cut_ranges)
+        cut_count = len(preview_ranges)
         color_legend = "".join(
             f'<span style="display:inline-flex;align-items:center;gap:4px;color:#e2e8f0;font-size:11px;">'
             f'<span style="width:10px;height:10px;border-radius:3px;background:{WAVE_COLORS[idx % len(WAVE_COLORS)]};"></span>'
@@ -591,7 +600,8 @@ if uploaded_file is not None:
             )
             analysis_key = (source_id, min_gap)
             key_prefix = f"auto_candidate_{source_id[1][:12]}_{min_gap}_"
-            if st.button(T('Analyze song boundaries'), type="primary", width="stretch"):
+            reanalyze = st.button(T('Analyze song boundaries'), type="primary", width="stretch")
+            if reanalyze or st.session_state.get("auto_result", (None,))[0] != analysis_key:
                 for key in list(st.session_state):
                     if key.startswith(key_prefix):
                         del st.session_state[key]
@@ -725,13 +735,22 @@ if uploaded_file is not None:
         # Application workflow.
         # ---------------------------------------------------------
         st.markdown(f"### {T('③ Review ranges and titles')}")
+        pending_range = None
         if work_mode == 'Manual':
             next_song_number = st.session_state.completed_in_session + len(st.session_state.cut_ranges) + 1
-            if not str(st.session_state.get("cut_title", "")).strip():
-                st.session_state.cut_title = f"{st.session_state.source_title}_{next_song_number:02d}"
-            st.markdown(f"**{T('Next: track {number} · Start {start} / End {end}', number=next_song_number, start=format_time(calc_start), end=format_time(calc_end))}**")
-            st.text_input(T('Title for this range (numbered automatically)'), key="cut_title")
-            st.button(T('Add range and continue to next track'), on_click=add_current_range, args=(duration_sec,), type="primary", width="stretch")
+            last_end = st.session_state.cut_ranges[-1]["end"] if st.session_state.cut_ranges else 0.0
+            if has_manual_selection:
+                if not str(st.session_state.get("cut_title", "")).strip():
+                    st.session_state.cut_title = f"{st.session_state.source_title}_{next_song_number:02d}"
+                st.markdown(f"**{T('Next: track {number} · Start {start} / End {end}', number=next_song_number, start=format_time(calc_start), end=format_time(calc_end))}**")
+                st.text_input(T('Title for this range (numbered automatically)'), key="cut_title")
+                pending_range = {"start": calc_start, "end": calc_end, "title": clean_title(st.session_state.cut_title)}
+                if calc_end < duration_sec:
+                    st.button(T('Add range and continue to next track'), on_click=add_current_range, args=(duration_sec,), type="primary", width="stretch")
+            elif last_end >= duration_sec:
+                st.info(T('All audio has been added to the split list.'))
+            else:
+                st.error(T('Set the next range after the previous track.'))
             if st.session_state.get("range_error"):
                 st.error(T(st.session_state.range_error))
             if st.session_state.get("range_notice"):
@@ -741,11 +760,14 @@ if uploaded_file is not None:
                     notice += T(' You can now set track {number}.', number=following_number)
                 st.success(notice)
 
-        if len(st.session_state.cut_ranges) > 0:
+        ranges_to_save = list(st.session_state.cut_ranges)
+        if pending_range is not None:
+            ranges_to_save.append(pending_range)
+        if ranges_to_save:
             st.markdown("<hr style='margin: 12px 0 10px 0; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-            st.markdown(f"#### {T('Split tracks ({count})', count=len(st.session_state.cut_ranges))}")
+            st.markdown(f"#### {T('Split tracks ({count})', count=len(ranges_to_save))}")
             range_overview = []
-            for idx, item in enumerate(st.session_state.cut_ranges):
+            for idx, item in enumerate(ranges_to_save):
                 song_number = st.session_state.completed_in_session + idx + 1
                 range_overview.append({
                     T('Track'): T('Track {number}', number=song_number),
@@ -810,12 +832,12 @@ if uploaded_file is not None:
             T('Cut and save'),
             type="primary",
             width="stretch",
-            disabled=not st.session_state.cut_ranges or output_dir is None,
+            disabled=not ranges_to_save or output_dir is None,
         ):
             try:
                 numbered_ranges = [
                     {**item, 'track_order': st.session_state.completed_in_session + idx + 1}
-                    for idx, item in enumerate(st.session_state.cut_ranges)
+                    for idx, item in enumerate(ranges_to_save)
                 ]
                 saved = save_cuts(audio, numbered_ranges, uploaded_file.name, output_dir)
                 st.session_state.completed_in_session += len(saved)

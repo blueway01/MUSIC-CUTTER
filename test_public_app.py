@@ -31,7 +31,8 @@ class PublicAppTests(unittest.TestCase):
     def test_save_download_history_and_reset(self) -> None:
         app = AppTest.from_file("streamlit_app.py", default_timeout=30).run()
         app.get("file_uploader")[0].upload("test.wav", sample_wav(), "audio/wav").run()
-        next(button for button in app.button if button.label == "Add range and continue to next track").click().run()
+        self.assertEqual(len(app.table), 1)
+        self.assertFalse(next(button for button in app.button if button.label == "Cut and save").disabled)
         next(button for button in app.button if button.label == "Cut and save").click().run()
         self.assertFalse(app.error)
         self.assertEqual(len(app.get("download_button")), 1)
@@ -40,6 +41,14 @@ class PublicAppTests(unittest.TestCase):
         next(button for button in app.button if button.label == "Start a new task (reset)").click().run()
         self.assertFalse(Path(directory).exists())
         self.assertFalse(app.error)
+
+    def test_automatic_mode_updates_review_list(self) -> None:
+        app = AppTest.from_file("streamlit_app.py", default_timeout=30).run()
+        app.get("file_uploader")[0].upload("test.wav", sample_wav(), "audio/wav").run()
+        next(radio for radio in app.radio if radio.label == "Splitting method").set_value("Automatic").run()
+        self.assertFalse(app.error)
+        self.assertEqual(len(app.table), 1)
+        self.assertFalse(next(button for button in app.button if button.label == "Cut and save").disabled)
 
 
 if __name__ == "__main__":
